@@ -28,8 +28,25 @@ type wrappedHTTPError struct {
 	err  error
 }
 
-// WrapHTTPError wraps an error with an HTTP status code.
+// WrapHTTPError wraps an error with an HTTP status code. If the error is
+// already of type HTTPError, it is returned as-is. To change the HTTP status
+// code, use OverrideHTTPError.
 func WrapHTTPError(code int, err error) HTTPError {
+	var httpErr HTTPError
+	if errors.As(err, &httpErr) {
+		return httpErr
+	}
+	return wrappedHTTPError{code, err}
+}
+
+// OverrideHTTPError overrides the HTTP status code of the given error. If the
+// error is not of type HTTPError, it is wrapped with the given status code. If
+// it is, the error is unwrapped and wrapped with the new status code.
+func OverrideHTTPError(code int, err error) HTTPError {
+	var httpErr HTTPError
+	if errors.As(err, &httpErr) {
+		err = errors.Unwrap(httpErr)
+	}
 	return wrappedHTTPError{code, err}
 }
 
