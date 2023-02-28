@@ -1,6 +1,7 @@
 package hrt
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -37,7 +38,7 @@ func (e wrappedHTTPError) HTTPStatus() int {
 }
 
 func (e wrappedHTTPError) Error() string {
-	return fmt.Sprintf("error status %d: %s", e.code, e.err)
+	return fmt.Sprintf("%d: %s", e.code, e.err)
 }
 
 func (e wrappedHTTPError) Unwrap() error {
@@ -67,4 +68,16 @@ func (textErrorWriter) WriteError(w http.ResponseWriter, err error) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(ErrorHTTPStatus(err, http.StatusInternalServerError))
 	fmt.Fprintln(w, err)
+}
+
+// JSONErrorWriter writes the error into the response in JSON. 500 status code
+// is used by default. The given field is used as the key for the error message.
+func JSONErrorWriter(field string) ErrorWriter {
+	return WriteErrorFunc(func(w http.ResponseWriter, err error) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(ErrorHTTPStatus(err, http.StatusInternalServerError))
+
+		msg := map[string]any{field: err.Error()}
+		json.NewEncoder(w).Encode(msg)
+	})
 }

@@ -28,7 +28,7 @@ type Opts struct {
 // DefaultOpts is the default options for the router.
 var DefaultOpts = Opts{
 	Encoder:     DefaultEncoder,
-	ErrorWriter: TextErrorWriter,
+	ErrorWriter: JSONErrorWriter("error"),
 }
 
 // OptsFromContext returns the options from the Handler's context. DefaultOpts
