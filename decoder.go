@@ -3,8 +3,9 @@ package hrt
 import (
 	"net/http"
 	"reflect"
-	"strconv"
+	"strings"
 
+	"github.com/diamondburned/hrt/internal/rfutil"
 	"github.com/go-chi/chi/v5"
 	"github.com/pkg/errors"
 )
@@ -37,7 +38,9 @@ func (e MethodDecoder) Decode(r *http.Request, v any) error {
 // a url.Value is found for a field, the field is left untouched.
 //
 // For the sake of supporting code generators, the decoder also reads the `json`
-// tag if the `url` tag is not present.
+// tag if the `url` tag is not present. If a struct field has no tag, it is
+// assumed to be the same as the field name. If a struct field has a tag, then
+// only that tag is used.
 //
 // # Example
 //
@@ -55,82 +58,51 @@ var URLDecoder Decoder = urlDecoder{}
 
 type urlDecoder struct{}
 
-func (d urlDecoder) Decode(r *http.Request, v any) error {
-	rv := reflect.Indirect(reflect.ValueOf(v))
-	if !rv.IsValid() {
-		return errors.New("invalid value")
+func lookupURL(r *http.Request, name string) string {
+	value := chi.URLParam(r, name)
+	if value == "" {
+		value = r.FormValue(name)
 	}
-
-	if rv.Kind() != reflect.Struct {
-		return errors.New("value is not a struct")
-	}
-
-	rt := rv.Type()
-	nfields := rv.NumField()
-
-	for i := 0; i < nfields; i++ {
-		rfv := rv.Field(i)
-		rft := rt.Field(i)
-		if !rft.IsExported() {
-			continue
-		}
-
-		var name string
-		if tag := rft.Tag.Get("json"); tag != "" {
-			name = tag
-		} else if tag := rft.Tag.Get("url"); tag != "" {
-			name = tag
-		} else {
-			name = rft.Name
-		}
-
-		value := chi.URLParam(r, name)
-		if value == "" {
-			value = r.FormValue(name)
-		}
-		if value == "" {
-			continue
-		}
-
-		setPrimitiveFromString(rfv.Type(), rfv, value)
-	}
-
-	return nil
+	return value
 }
 
-func setPrimitiveFromString(rf reflect.Type, rv reflect.Value, s string) error {
-	switch rf.Kind() {
-	case reflect.String:
-		rv.SetString(s)
+var urlDecoderTags = []string{"url", "json"}
 
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		i, err := strconv.ParseInt(s, 10, 64)
-		if err != nil {
-			return errors.Wrap(err, "invalid int")
+func (d urlDecoder) Decode(r *http.Request, v any) error {
+	return rfutil.EachStructField(v, func(rft reflect.StructField, rfv reflect.Value) error {
+		for _, tag := range urlDecoderTags {
+			tagValue := rft.Tag.Get(tag)
+			if tagValue == "" {
+				continue
+			}
+
+			val := lookupURL(r, tag)
+			if val == "" {
+				return nil
+			}
+
+			return rfutil.SetPrimitiveFromString(rfv.Type(), rfv, val)
 		}
-		rv.SetInt(i)
 
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		i, err := strconv.ParseUint(s, 10, 64)
-		if err != nil {
-			return errors.Wrap(err, "invalid uint")
+		// Search for the URL parameters manually.
+		if rctx := chi.RouteContext(r.Context()); rctx != nil {
+			for i, k := range rctx.URLParams.Keys {
+				if strings.EqualFold(k, rft.Name) {
+					return rfutil.SetPrimitiveFromString(rfv.Type(), rfv, rctx.URLParams.Values[i])
+				}
+			}
 		}
-		rv.SetUint(i)
 
-	case reflect.Float32, reflect.Float64:
-		f, err := strconv.ParseFloat(s, 64)
-		if err != nil {
-			return errors.Wrap(err, "invalid float")
+		// Trigger form parsing.
+		r.FormValue("")
+
+		// Search for URL form values manually.
+		for k, v := range r.Form {
+			if strings.EqualFold(k, rft.Name) {
+				return rfutil.SetPrimitiveFromString(rfv.Type(), rfv, v[0])
+			}
 		}
-		rv.SetFloat(f)
 
-	case reflect.Bool:
-		b, err := strconv.ParseBool(s)
-		if err != nil {
-			return errors.Wrap(err, "invalid bool")
-		}
-		rv.SetBool(b)
-	}
-
-	return nil
+		return nil // ignore
+	})
 }
