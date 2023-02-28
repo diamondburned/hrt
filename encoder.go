@@ -8,13 +8,13 @@ import (
 // DefaultEncoder is the default encoder used by the router. It decodes GET
 // requests using the query string and URL parameter; everything else uses JSON.
 var DefaultEncoder = CombinedEncoder{
-	Encoder: JSONEncoder,
-	Decoder: MethodDecoder{
+	Encoder: EncoderWithValidator(JSONEncoder),
+	Decoder: DecoderWithValidator(MethodDecoder{
 		// For the sake of being RESTful, we use a URLDecoder for GET requests.
 		"GET": URLDecoder,
 		// Everything else will be decoded as JSON.
 		"*": JSONEncoder,
-	},
+	}),
 }
 
 // Encoder describes an encoder that encodes or decodes the request and response
@@ -84,15 +84,5 @@ func (e validatorEncoder) Encode(w http.ResponseWriter, v any) error {
 }
 
 func (e validatorEncoder) Decode(r *http.Request, v any) error {
-	if err := e.enc.Decode(r, v); err != nil {
-		return err
-	}
-
-	if validator, ok := v.(Validator); ok {
-		if err := validator.Validate(); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return (validatorDecoder{e.enc}).Decode(r, v)
 }

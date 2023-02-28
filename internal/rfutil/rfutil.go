@@ -9,8 +9,13 @@ import (
 )
 
 // SetPrimitiveFromString sets the value of a primitive type from a string. It
-// supports strings, ints, uints, floats and bools.
+// supports strings, ints, uints, floats and bools. If s is empty, the value is
+// left untouched.
 func SetPrimitiveFromString(rf reflect.Type, rv reflect.Value, s string) error {
+	if s == "" {
+		return nil
+	}
+
 	switch rf.Kind() {
 	case reflect.String:
 		rv.SetString(s)

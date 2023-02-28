@@ -37,10 +37,17 @@ func (e MethodDecoder) Decode(r *http.Request, v any) error {
 // traverse the struct and decode nested structs. If neither a chi.URLParam nor
 // a url.Value is found for a field, the field is left untouched.
 //
-// For the sake of supporting code generators, the decoder also reads the `json`
-// tag if the `url` tag is not present. If a struct field has no tag, it is
-// assumed to be the same as the field name. If a struct field has a tag, then
-// only that tag is used.
+// The following tags are supported:
+//
+// - `url` - uses chi.URLParam to decode the value.
+// - `form` - uses r.FormValue to decode the value.
+// - `query` - similar to `form`.
+// - `schema` - similar to `form`, exists for compatibility with gorilla/schema.
+// - `json` - uses either chi.URLParam or r.FormValue to decode the value.
+//   This exists for compatibility with code generators.
+//
+// If a struct field has no tag, it is assumed to be the same as the field name.
+// If a struct field has a tag, then only that tag is used.
 //
 // # Example
 //
@@ -58,30 +65,26 @@ var URLDecoder Decoder = urlDecoder{}
 
 type urlDecoder struct{}
 
-func lookupURL(r *http.Request, name string) string {
-	value := chi.URLParam(r, name)
-	if value == "" {
-		value = r.FormValue(name)
-	}
-	return value
-}
-
-var urlDecoderTags = []string{"url", "json"}
-
 func (d urlDecoder) Decode(r *http.Request, v any) error {
 	return rfutil.EachStructField(v, func(rft reflect.StructField, rfv reflect.Value) error {
-		for _, tag := range urlDecoderTags {
-			tagValue := rft.Tag.Get(tag)
-			if tagValue == "" {
-				continue
+		for _, tag := range []string{"form", "query", "schema"} {
+			if tagValue := rft.Tag.Get(tag); tagValue != "" {
+				val := r.FormValue(tagValue)
+				return rfutil.SetPrimitiveFromString(rft.Type, rfv, val)
 			}
+		}
 
-			val := lookupURL(r, tag)
+		if tagValue := rft.Tag.Get("url"); tagValue != "" {
+			val := chi.URLParam(r, tagValue)
+			return rfutil.SetPrimitiveFromString(rft.Type, rfv, val)
+		}
+
+		if tagValue := rft.Tag.Get("json"); tagValue != "" {
+			val := chi.URLParam(r, tagValue)
 			if val == "" {
-				return nil
+				val = r.FormValue(tagValue)
 			}
-
-			return rfutil.SetPrimitiveFromString(rfv.Type(), rfv, val)
+			return rfutil.SetPrimitiveFromString(rft.Type, rfv, val)
 		}
 
 		// Search for the URL parameters manually.
@@ -105,4 +108,26 @@ func (d urlDecoder) Decode(r *http.Request, v any) error {
 
 		return nil // ignore
 	})
+}
+
+// DecoderWithValidator wraps an encoder with one that calls Validate() on the
+// value after decoding and before encoding if the value implements Validator.
+func DecoderWithValidator(enc Decoder) Decoder {
+	return validatorDecoder{enc}
+}
+
+type validatorDecoder struct{ dec Decoder }
+
+func (e validatorDecoder) Decode(r *http.Request, v any) error {
+	if err := e.dec.Decode(r, v); err != nil {
+		return err
+	}
+
+	if validator, ok := v.(Validator); ok {
+		if err := validator.Validate(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
