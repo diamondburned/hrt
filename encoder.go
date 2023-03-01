@@ -7,13 +7,14 @@ import (
 
 // DefaultEncoder is the default encoder used by the router. It decodes GET
 // requests using the query string and URL parameter; everything else uses JSON.
+//
+// For the sake of being RESTful, we use a URLDecoder for GET requests.
+// Everything else will be decoded as JSON.
 var DefaultEncoder = CombinedEncoder{
 	Encoder: EncoderWithValidator(JSONEncoder),
 	Decoder: DecoderWithValidator(MethodDecoder{
-		// For the sake of being RESTful, we use a URLDecoder for GET requests.
 		"GET": URLDecoder,
-		// Everything else will be decoded as JSON.
-		"*": JSONEncoder,
+		"*":   JSONEncoder,
 	}),
 }
 
