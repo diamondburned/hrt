@@ -39,6 +39,11 @@ func WrapHTTPError(code int, err error) HTTPError {
 	return wrappedHTTPError{code, err}
 }
 
+// NewHTTPError creates a new HTTPError with the given status code and message.
+func NewHTTPError(code int, str string) HTTPError {
+	return wrappedHTTPError{code, errors.New(str)}
+}
+
 // OverrideHTTPError overrides the HTTP status code of the given error. If the
 // error is not of type HTTPError, it is wrapped with the given status code. If
 // it is, the error is unwrapped and wrapped with the new status code.
