@@ -42,11 +42,8 @@ func SetPrimitiveFromString(rf reflect.Type, rv reflect.Value, s string) error {
 		rv.SetFloat(f)
 
 	case reflect.Bool:
-		b, err := strconv.ParseBool(s)
-		if err != nil {
-			return errors.Wrap(err, "invalid bool")
-		}
-		rv.SetBool(b)
+		// False means omitted according to MDN.
+		rv.SetBool(s != "")
 	}
 
 	return nil
