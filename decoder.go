@@ -1,6 +1,7 @@
 package hrt
 
 import (
+	"encoding/json"
 	"net/http"
 	"reflect"
 	"strings"
@@ -44,7 +45,9 @@ func (e MethodDecoder) Decode(r *http.Request, v any) error {
 // - `query` - similar to `form`.
 // - `schema` - similar to `form`, exists for compatibility with gorilla/schema.
 // - `json` - uses either chi.URLParam or r.FormValue to decode the value.
-//   This exists for compatibility with code generators.
+//   If the value is provided within the form, then it is unmarshaled as JSON
+//   into the field unless the type is a string. If the value is provided within
+//   the URL, then it is unmarshaled as a primitive value.
 //
 // If a struct field has no tag, it is assumed to be the same as the field name.
 // If a struct field has a tag, then only that tag is used.
@@ -80,11 +83,21 @@ func (d urlDecoder) Decode(r *http.Request, v any) error {
 		}
 
 		if tagValue := rft.Tag.Get("json"); tagValue != "" {
-			val := chi.URLParam(r, tagValue)
-			if val == "" {
-				val = r.FormValue(tagValue)
+			if val := chi.URLParam(r, tagValue); val != "" {
+				return rfutil.SetPrimitiveFromString(rft.Type, rfv, val)
 			}
-			return rfutil.SetPrimitiveFromString(rft.Type, rfv, val)
+
+			val := r.FormValue(tagValue)
+			if rft.Type.Kind() == reflect.String {
+				rfv.SetString(val)
+				return nil
+			}
+
+			jsonValue := reflect.New(rft.Type)
+			if err := json.Unmarshal([]byte(val), jsonValue.Interface()); err != nil {
+				return errors.Wrap(err, "failed to unmarshal JSON")
+			}
+			rfv.Set(jsonValue.Elem())
 		}
 
 		// Search for the URL parameters manually.
