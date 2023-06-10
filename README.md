@@ -5,7 +5,7 @@ HRT stands for (H)TTP (r)outer with (t)ypes.
 
 ## Documentation
 
-For documentation and examples, see [GoDoc](https://godoc.org/github.com/diamondburned/hrt).
+For documentation and examples, see [GoDoc](https://godoc.org/libdb.so/hrt).
 
 ## Dependencies
 
