@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/diamondburned/hrt/internal/rfutil"
+	"libdb.so/hrt/internal/rfutil"
 	"github.com/go-chi/chi/v5"
 	"github.com/pkg/errors"
 )

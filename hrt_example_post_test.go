@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/diamondburned/hrt"
-	"github.com/diamondburned/hrt/internal/ht"
+	"libdb.so/hrt"
+	"libdb.so/hrt/internal/ht"
 	"github.com/go-chi/chi/v5"
 	"github.com/pkg/errors"
 )

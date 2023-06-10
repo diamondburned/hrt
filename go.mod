@@ -1,4 +1,4 @@
-module github.com/diamondburned/hrt
+module libdb.so/hrt
 
 go 1.18
 
