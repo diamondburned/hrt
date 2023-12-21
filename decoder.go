@@ -6,9 +6,9 @@ import (
 	"reflect"
 	"strings"
 
-	"libdb.so/hrt/internal/rfutil"
 	"github.com/go-chi/chi/v5"
 	"github.com/pkg/errors"
+	"libdb.so/hrt/v2/internal/rfutil"
 )
 
 // Decoder describes a decoder that decodes the request type.
@@ -40,14 +40,14 @@ func (e MethodDecoder) Decode(r *http.Request, v any) error {
 //
 // The following tags are supported:
 //
-// - `url` - uses chi.URLParam to decode the value.
-// - `form` - uses r.FormValue to decode the value.
-// - `query` - similar to `form`.
-// - `schema` - similar to `form`, exists for compatibility with gorilla/schema.
-// - `json` - uses either chi.URLParam or r.FormValue to decode the value.
-//   If the value is provided within the form, then it is unmarshaled as JSON
-//   into the field unless the type is a string. If the value is provided within
-//   the URL, then it is unmarshaled as a primitive value.
+//   - `url` - uses chi.URLParam to decode the value.
+//   - `form` - uses r.FormValue to decode the value.
+//   - `query` - similar to `form`.
+//   - `schema` - similar to `form`, exists for compatibility with gorilla/schema.
+//   - `json` - uses either chi.URLParam or r.FormValue to decode the value.
+//     If the value is provided within the form, then it is unmarshaled as JSON
+//     into the field unless the type is a string. If the value is provided within
+//     the URL, then it is unmarshaled as a primitive value.
 //
 // If a struct field has no tag, it is assumed to be the same as the field name.
 // If a struct field has a tag, then only that tag is used.
@@ -56,14 +56,13 @@ func (e MethodDecoder) Decode(r *http.Request, v any) error {
 //
 // The following Go type would be decoded to have 2 URL parameters:
 //
-//    type Data struct {
-//        ID  string
-//        Num int `url:"num"`
-//        Nested struct {
-//            ID string
-//        }
-//    }
-//
+//	type Data struct {
+//	    ID  string
+//	    Num int `url:"num"`
+//	    Nested struct {
+//	        ID string
+//	    }
+//	}
 var URLDecoder Decoder = urlDecoder{}
 
 type urlDecoder struct{}

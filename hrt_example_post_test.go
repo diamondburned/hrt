@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"sync"
 
-	"libdb.so/hrt"
-	"libdb.so/hrt/internal/ht"
 	"github.com/go-chi/chi/v5"
 	"github.com/pkg/errors"
+	"libdb.so/hrt/v2"
+	"libdb.so/hrt/v2/internal/ht"
 )
 
 // User is a simple user type.
@@ -77,8 +77,8 @@ func Example_post() {
 	r := chi.NewRouter()
 	r.Use(hrt.Use(hrt.DefaultOpts))
 	r.Route("/users", func(r chi.Router) {
-		r.Get("/{id}", hrt.Wrap(handleGetUser))
-		r.Post("/", hrt.Wrap(handleCreateUser))
+		r.Method("get", "/{id}", hrt.Wrap(handleGetUser))
+		r.Method("post", "/", hrt.Wrap(handleCreateUser))
 	})
 
 	srv := ht.NewServer(r)

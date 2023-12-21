@@ -6,10 +6,9 @@ import (
 	"net/url"
 	"strings"
 
-	"libdb.so/hrt"
-	"libdb.so/hrt/internal/ht"
-	"github.com/go-chi/chi/v5"
 	"github.com/pkg/errors"
+	"libdb.so/hrt/v2"
+	"libdb.so/hrt/v2/internal/ht"
 )
 
 // EchoRequest is a simple request type that echoes the request.
@@ -35,7 +34,7 @@ func handleEcho(ctx context.Context, req EchoRequest) (EchoResponse, error) {
 }
 
 func Example_get() {
-	r := chi.NewRouter()
+	r := hrt.NewRouter()
 	r.Use(hrt.Use(hrt.DefaultOpts))
 	r.Get("/echo", hrt.Wrap(handleEcho))
 
