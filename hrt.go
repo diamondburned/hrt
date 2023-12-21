@@ -70,8 +70,8 @@ type Handler[RequestT, ResponseT any] func(ctx context.Context, req RequestT) (R
 
 // Wrap wraps a handler into a http.Handler. It exists because Go's type
 // inference doesn't work well with the Handler type.
-func Wrap[RequestT, ResponseT any](f func(ctx context.Context, req RequestT) (ResponseT, error)) http.HandlerFunc {
-	return Handler[RequestT, ResponseT](f).ServeHTTP
+func Wrap[RequestT, ResponseT any](f func(ctx context.Context, req RequestT) (ResponseT, error)) http.Handler {
+	return Handler[RequestT, ResponseT](f)
 }
 
 // ServeHTTP implements the http.Handler interface.
@@ -130,4 +130,41 @@ func decodeRequest[RequestT any](r *http.Request, opts Opts) (RequestT, error) {
 	}
 
 	return *v.(*RequestT), nil
+}
+
+// HandlerIntrospection is a struct that contains information about a handler.
+// This is primarily used for documentation.
+type HandlerIntrospection struct {
+	// FuncType is the type of the function.
+	FuncType reflect.Type
+	// RequestType is the type of the request parameter.
+	RequestType reflect.Type
+	// ResponseType is the type of the response parameter.
+	ResponseType reflect.Type
+}
+
+// TryIntrospectingHandler checks if h is an hrt.Handler and returns its
+// introspection if it is, otherwise it returns false.
+func TryIntrospectingHandler(h http.Handler) (HandlerIntrospection, bool) {
+	type introspector interface {
+		Introspect() HandlerIntrospection
+	}
+	var _ introspector = Handler[None, None](nil)
+
+	if h, ok := h.(introspector); ok {
+		return h.Introspect(), true
+	}
+	return HandlerIntrospection{}, false
+}
+
+// Introspect returns information about the handler.
+func (h Handler[RequestT, ResponseT]) Introspect() HandlerIntrospection {
+	var req RequestT
+	var resp ResponseT
+
+	return HandlerIntrospection{
+		FuncType:     reflect.TypeOf(h),
+		RequestType:  reflect.TypeOf(req),
+		ResponseType: reflect.TypeOf(resp),
+	}
 }

@@ -1,4 +1,4 @@
-module libdb.so/hrt
+module libdb.so/hrt/v2
 
 go 1.18
 
