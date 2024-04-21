@@ -5,6 +5,7 @@ package hrt
 import (
 	"context"
 	"net/http"
+	"reflect"
 )
 
 type ctxKey uint8
@@ -81,11 +82,11 @@ func (h Handler[RequestT, ResponseT]) ServeHTTP(w http.ResponseWriter, r *http.R
 	ctx := context.WithValue(r.Context(), requestCtxKey, r)
 
 	opts := OptsFromContext(ctx)
-	if _, ok := any(req).(None); !ok {
-		if err := opts.Encoder.Decode(r, &req); err != nil {
-			opts.ErrorWriter.WriteError(w, WrapHTTPError(http.StatusBadRequest, err))
-			return
-		}
+
+	req, err := decodeRequest[RequestT](r, opts)
+	if err != nil {
+		opts.ErrorWriter.WriteError(w, WrapHTTPError(http.StatusBadRequest, err))
+		return
 	}
 
 	resp, err := h(ctx, req)
@@ -100,4 +101,33 @@ func (h Handler[RequestT, ResponseT]) ServeHTTP(w http.ResponseWriter, r *http.R
 			return
 		}
 	}
+}
+
+func decodeRequest[RequestT any](r *http.Request, opts Opts) (RequestT, error) {
+	var req RequestT
+	if _, ok := any(req).(None); ok {
+		return req, nil
+	}
+
+	if reflect.TypeFor[RequestT]().Kind() == reflect.Ptr {
+		// RequestT is a pointer type, so we need to allocate a new instance.
+		v := reflect.New(reflect.TypeFor[RequestT]().Elem()).Interface()
+
+		if err := opts.Encoder.Decode(r, v); err != nil {
+			return req, err
+		}
+
+		// Return the value as-is, since it's already a pointer.
+		return v.(RequestT), nil
+	}
+
+	// RequestT is a value type, so we need to allocate a new pointer instance
+	// and dereference it afterwards.
+	v := reflect.New(reflect.TypeFor[RequestT]()).Interface()
+
+	if err := opts.Encoder.Decode(r, v); err != nil {
+		return req, err
+	}
+
+	return *v.(*RequestT), nil
 }
