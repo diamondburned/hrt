@@ -33,7 +33,7 @@ r.Get("/echo", hrt.Wrap(handleEcho))
 
 ## Documentation
 
-For documentation and examples, see [GoDoc](https://godoc.org/libdb.so/hrt).
+For documentation and examples, see [GoDoc](https://godoc.org/libdb.so/hrt/v2).
 
 ## Dependencies
 
