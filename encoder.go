@@ -3,6 +3,8 @@ package hrt
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/pkg/errors"
 )
 
 // DefaultEncoder is the default encoder used by the router. It decodes GET
@@ -33,6 +35,8 @@ type CombinedEncoder struct {
 	Decoder Decoder
 }
 
+var _ Encoder = CombinedEncoder{}
+
 // Encode implements the Encoder interface.
 func (e CombinedEncoder) Encode(w http.ResponseWriter, v any) error {
 	return e.Encoder.Encode(w, v)
@@ -41,6 +45,20 @@ func (e CombinedEncoder) Encode(w http.ResponseWriter, v any) error {
 // Decode implements the Decoder interface.
 func (e CombinedEncoder) Decode(r *http.Request, v any) error {
 	return e.Decoder.Decode(r, v)
+}
+
+// UnencodableEncoder is an encoder that can only decode and not encode.
+// It wraps an existing decoder.
+// Calling Encode will return a 500 error, as it is considered a bug to return
+// anything.
+type UnencodableEncoder struct {
+	Decoder
+}
+
+var _ Encoder = UnencodableEncoder{}
+
+func (e UnencodableEncoder) Encode(w http.ResponseWriter, v any) error {
+	return WrapHTTPError(http.StatusInternalServerError, errors.New("cannot encode"))
 }
 
 // JSONEncoder is an encoder that encodes and decodes JSON.
