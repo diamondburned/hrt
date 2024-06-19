@@ -2,11 +2,14 @@
 package rfutil
 
 import (
+	"encoding"
 	"reflect"
 	"strconv"
 
 	"github.com/pkg/errors"
 )
+
+var textUnmarshalerType = reflect.TypeFor[encoding.TextUnmarshaler]()
 
 // SetPrimitiveFromString sets the value of a primitive type from a string. It
 // supports strings, ints, uints, floats and bools. If s is empty, the value is
@@ -16,9 +19,18 @@ func SetPrimitiveFromString(rf reflect.Type, rv reflect.Value, s string) error {
 		return nil
 	}
 
+	if rf.Kind() == reflect.Ptr {
+		rf = rf.Elem()
+
+		newValue := reflect.New(rf)
+		rv.Set(newValue)
+		rv = newValue.Elem()
+	}
+
 	switch rf.Kind() {
 	case reflect.String:
 		rv.SetString(s)
+		return nil
 
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		i, err := strconv.ParseInt(s, 10, rf.Bits())
@@ -26,6 +38,7 @@ func SetPrimitiveFromString(rf reflect.Type, rv reflect.Value, s string) error {
 			return errors.Wrap(err, "invalid int")
 		}
 		rv.SetInt(i)
+		return nil
 
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		i, err := strconv.ParseUint(s, 10, rf.Bits())
@@ -33,6 +46,7 @@ func SetPrimitiveFromString(rf reflect.Type, rv reflect.Value, s string) error {
 			return errors.Wrap(err, "invalid uint")
 		}
 		rv.SetUint(i)
+		return nil
 
 	case reflect.Float32, reflect.Float64:
 		f, err := strconv.ParseFloat(s, rf.Bits())
@@ -40,10 +54,19 @@ func SetPrimitiveFromString(rf reflect.Type, rv reflect.Value, s string) error {
 			return errors.Wrap(err, "invalid float")
 		}
 		rv.SetFloat(f)
+		return nil
 
 	case reflect.Bool:
 		// False means omitted according to MDN.
 		rv.SetBool(s != "")
+		return nil
+	}
+
+	if reflect.PointerTo(rf).Implements(textUnmarshalerType) {
+		unmarshaler := rv.Addr().Interface().(encoding.TextUnmarshaler)
+		if err := unmarshaler.UnmarshalText([]byte(s)); err != nil {
+			return errors.Wrap(err, "text unmarshaling")
+		}
 	}
 
 	return nil
